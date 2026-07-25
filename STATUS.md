@@ -18,4 +18,4 @@
 - [x] Add OpenID4VP request generation, wallet launch/copy controls, and verifier-result inspection.
 - [x] Validate responsive behavior, lint, and production build.
 - [x] Publish the frontend to the Lovable-connected repository via [verifier-page PR #1](https://github.com/advatar/verifier-page/pull/1).
-- [ ] Integrate the parent repository's verified submodule reference into `main`.
+- [x] Integrate the parent repository's verified submodule reference into `main` via [PR #4](https://github.com/advatar/Verifier/pull/4).
