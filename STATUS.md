@@ -10,3 +10,12 @@
 - [x] Add conformance-oriented unit tests and CI verification gates.
 - [x] Run Rust, Lean, and Tamarin verification.
 - [x] Integrate the verified branch into `main` via [PR #2](https://github.com/advatar/Verifier/pull/2).
+
+## Test relying-party frontend
+
+- [x] Create [issue #3](https://github.com/advatar/Verifier/issues/3) and use one issue-scoped branch.
+- [x] Build the Lovable test relying party for every credential profile exposed by VCIssuer.
+- [x] Add OpenID4VP request generation, wallet launch/copy controls, and verifier-result inspection.
+- [x] Validate responsive behavior, lint, and production build.
+- [x] Publish the frontend to the Lovable-connected repository via [verifier-page PR #1](https://github.com/advatar/verifier-page/pull/1).
+- [ ] Integrate the parent repository's verified submodule reference into `main`.
