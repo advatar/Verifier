@@ -9,4 +9,4 @@
 - [x] Model presentation authentication, holder binding, and replay resistance in Tamarin.
 - [x] Add conformance-oriented unit tests and CI verification gates.
 - [x] Run Rust, Lean, and Tamarin verification.
-- [ ] Integrate the verified branch into `main`.
+- [x] Integrate the verified branch into `main` via [PR #2](https://github.com/advatar/Verifier/pull/2).
