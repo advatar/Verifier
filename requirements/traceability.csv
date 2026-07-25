@@ -1,0 +1,11 @@
+id,requirement,implementation,formal_evidence,test_evidence,status
+VP-BIND-001,"Bind response to request, client, nonce and transcript","rust/verifier-core/src/lib.rs:authorize_accept","accepted_response_is_request_bound","request_binding_fields_are_all_mandatory",implemented
+VP-REPLAY-001,"Accept a response at most once","rust/verifier-core/src/lib.rs:accept_once","replayed_response_cannot_be_accepted; response_nonce_accepted_at_most_once","successful_acceptance_consumes_response_exactly_once",implemented
+VC-TRUST-001,"Accept only the policy-selected trust anchor","rust/verifier-core/src/lib.rs:authorize_accept","accepted_credential_is_trusted_and_current","untrusted_revoked_or_stale_credential_is_rejected",implemented
+VC-STATUS-001,"Require fresh status and non-revocation","rust/verifier-core/src/lib.rs:TimedEvidence::usable_at","accepted_credential_is_trusted_and_current","untrusted_revoked_or_stale_credential_is_rejected",implemented
+VP-DISC-001,"Release only the selected disclosure set","rust/verifier-core/src/lib.rs:authorize_accept","accepted_disclosures_match_policy","disclosure_and_holder_binding_are_fail_closed",implemented
+VP-HOLDER-001,"Enforce holder proof when policy requires it","rust/verifier-core/src/lib.rs:authorize_accept","required_holder_binding_is_enforced; acceptance_requires_holder_presentation","disclosure_and_holder_binding_are_fail_closed",implemented
+WIRE-OID4VP-001,"Parse and validate OpenID4VP 1.0 requests and responses",adapter-not-implemented,not-modeled,not-implemented,open
+WIRE-SDJWT-001,"Cryptographically validate SD-JWT VC and KB-JWT",adapter-not-implemented,adapter-contract-only,not-implemented,open
+WIRE-MDOC-001,"Cryptographically validate mdoc and session transcript",adapter-not-implemented,adapter-contract-only,not-implemented,open
+

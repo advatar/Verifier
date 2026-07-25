@@ -1,0 +1,71 @@
+manifest_version = 1
+profile_bundle = "eudi-verifier-baseline-2026-07"
+created_on = "2026-07-25"
+production_ready = false
+
+[policy]
+require_content_sha256 = true
+forbid_floating_latest = true
+fail_on_unknown_requirement = true
+
+[[source]]
+id = "arf"
+title = "European Digital Identity Wallet Architecture and Reference Framework"
+version = "2.9.0"
+published = "2026-05-11"
+url = "https://github.com/eu-digital-identity-wallet/eudi-doc-architecture-and-reference-framework/releases/tag/v2.9.0"
+content_sha256 = ""
+applicability = ["all"]
+
+[[source]]
+id = "oid4vp"
+title = "OpenID for Verifiable Presentations"
+version = "1.0 Final"
+published = "2025-07-10"
+url = "https://openid.net/specs/openid-4-verifiable-presentations-1_0-final.html"
+content_sha256 = ""
+applicability = ["same-device", "cross-device", "dc-api"]
+
+[[source]]
+id = "haip"
+title = "OpenID4VC High Assurance Interoperability Profile"
+version = "1.0-07"
+published = "2025-12-24"
+url = "https://openid.net/specs/openid4vc-high-assurance-interoperability-profile-1_0-07.html"
+content_sha256 = ""
+applicability = ["sd-jwt-vc", "mdoc"]
+
+[[source]]
+id = "sd-jwt-vc"
+title = "SD-JWT-based Verifiable Digital Credentials"
+version = "SELECT_HAIP_PINNED_VERSION"
+url = "SELECT_IMMUTABLE_ARTIFACT"
+content_sha256 = ""
+applicability = ["sd-jwt-vc"]
+
+[[source]]
+id = "iso-18013-5"
+title = "ISO/IEC 18013-5"
+version = "SELECT_SCHEME_EDITION"
+url = "RECORD_LICENSED_COPY"
+content_sha256 = ""
+applicability = ["mdoc"]
+
+[[source]]
+id = "relying-party-rulebook"
+title = "Applicable national or sectoral relying-party rulebook"
+version = "SELECT"
+url = "SELECT_IMMUTABLE_ARTIFACT"
+content_sha256 = ""
+applicability = ["deployment"]
+
+[[tool]]
+id = "lean"
+version = "4.32.0"
+source = "formal/lean/lean-toolchain"
+
+[[tool]]
+id = "tamarin"
+version = "1.12.0"
+source = "PIN_REPRODUCIBLE_BINARY_OR_SOURCE"
+

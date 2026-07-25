@@ -1,0 +1,73 @@
+/*
+ * Symbolic core of an EUDI relying-party presentation.
+ * Parsing, PKI, algorithms, status freshness, and UI consent are assumptions
+ * represented by the authenticated request and credential facts.
+ */
+
+theory EudiPresentation
+begin
+
+builtins: signing, hashing
+
+functions:
+  request/4,
+  presentation/6,
+  credential/4
+
+rule RegisterIssuer:
+  [ Fr(~skI) ]
+  --[ IssuerRegistered($I, pk(~skI)) ]->
+  [ !IssuerKey($I, ~skI), Out(pk(~skI)) ]
+
+rule RegisterHolder:
+  [ Fr(~skH) ]
+  --[ HolderRegistered($H, pk(~skH)) ]->
+  [ !HolderKey($H, ~skH), Out(pk(~skH)) ]
+
+rule CreateRequest:
+  [ Fr(~nonce), Fr(~transcript) ]
+  --[ RequestCreated($V, $Client, ~nonce, ~transcript) ]->
+  [ RequestState($V, $Client, ~nonce, ~transcript),
+    Out(request($V, $Client, ~nonce, ~transcript)) ]
+
+rule IssueCredential:
+  [ !IssuerKey($I, ~skI), !HolderKey($H, ~skH) ]
+  --[ CredentialIssued($I, $H, pk(~skH), $Claims) ]->
+  [ !CredentialState($I, $H, pk(~skH), $Claims),
+    Out(sign(credential($I, $H, pk(~skH), $Claims), ~skI)) ]
+
+rule PresentCredential:
+  [ !HolderKey($H, ~skH),
+    !CredentialState($I, $H, pk(~skH), $Claims),
+    In(request($V, $Client, $Nonce, $Transcript)) ]
+  --[ HolderPresented($H, $V, $Client, $Nonce, $Transcript, $I, $Claims) ]->
+  [ Out(sign(presentation($V, $Client, $Nonce, $Transcript, $I, $Claims), ~skH)) ]
+
+rule AcceptPresentation:
+  [ RequestState($V, $Client, ~nonce, ~transcript),
+    !CredentialState($I, $H, $HolderPk, $Claims),
+    In(sign(presentation($V, $Client, ~nonce, ~transcript, $I, $Claims), $HolderSk)) ]
+  --[ Eq($HolderPk, pk($HolderSk)),
+      PresentationAccepted($V, $Client, ~nonce, ~transcript, $I, $H, $Claims) ]->
+  [ ]
+
+restriction Equality:
+  "All x y #i. Eq(x,y) @ #i ==> x = y"
+
+lemma acceptance_requires_request:
+  "All V Client Nonce Transcript I H Claims #i.
+     PresentationAccepted(V, Client, Nonce, Transcript, I, H, Claims) @ #i
+     ==> (Ex #j. RequestCreated(V, Client, Nonce, Transcript) @ #j & #j < #i)"
+
+lemma acceptance_requires_holder_presentation:
+  "All V Client Nonce Transcript I H Claims #i.
+     PresentationAccepted(V, Client, Nonce, Transcript, I, H, Claims) @ #i
+     ==> (Ex #j. HolderPresented(H, V, Client, Nonce, Transcript, I, Claims) @ #j & #j < #i)"
+
+lemma response_nonce_accepted_at_most_once:
+  "All V1 V2 C1 C2 N T1 T2 I1 I2 H1 H2 Claims1 Claims2 #i #j.
+     PresentationAccepted(V1, C1, N, T1, I1, H1, Claims1) @ #i
+     & PresentationAccepted(V2, C2, N, T2, I2, H2, Claims2) @ #j
+     ==> #i = #j"
+
+end
