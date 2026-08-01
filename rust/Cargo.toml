@@ -1,6 +1,6 @@
 [workspace]
 resolver = "3"
-members = ["verifier-core"]
+members = ["verifier-core", "hybrid-pq", "hybrid-pq-verifier"]
 
 [workspace.package]
 edition = "2024"

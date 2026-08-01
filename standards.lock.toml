@@ -52,6 +52,23 @@ content_sha256 = ""
 applicability = ["mdoc"]
 
 [[source]]
+id = "fips-204"
+title = "FIPS 204: Module-Lattice-Based Digital Signature Standard (ML-DSA)"
+version = "Final"
+published = "2024-08-13"
+url = "https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.204.pdf"
+content_sha256 = ""
+applicability = ["experimental-hybrid-pq"]
+
+[[source]]
+id = "euwallet-hybrid-pq-v1"
+title = "EUWallet experimental hybrid PQ profile (frozen wire contract)"
+version = "euwallet-hybrid-pq-v1"
+url = "../EUWallet/docs/experimental-hybrid-pq-profile-v1.md"
+content_sha256 = ""
+applicability = ["experimental-hybrid-pq"]
+
+[[source]]
 id = "relying-party-rulebook"
 title = "Applicable national or sectoral relying-party rulebook"
 version = "SELECT"

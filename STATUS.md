@@ -20,6 +20,18 @@
 - [x] Publish the frontend to the Lovable-connected repository via [verifier-page PR #1](https://github.com/advatar/verifier-page/pull/1).
 - [x] Integrate the parent repository's verified submodule reference into `main` via [PR #4](https://github.com/advatar/Verifier/pull/4).
 
+## Hybrid post-quantum verification
+
+- [x] Port the frozen `euwallet-hybrid-pq-v1` types, TBS construction, and
+      strict envelope codec from `../EUWallet` into `rust/hybrid-pq`.
+- [x] Port the atomic ES256 + ML-DSA-65 verification entry point into
+      `rust/hybrid-pq-verifier` on the qualified RustCrypto `ml-dsa` pin.
+- [x] Pin the wallet repository's published TBS test vectors and ML-DSA-65
+      key anchor for cross-repository interoperability.
+- [x] Add the kernel `SignatureSuite` gate and prove
+      `required_signature_suite_is_enforced` in Lean.
+- [x] Extend traceability, standards lock, threat model, and assurance case.
+
 ## Multi-tenant Lovable application
 
 - [x] Create the continuation issue: [#5](https://github.com/advatar/Verifier/issues/5).

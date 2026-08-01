@@ -8,12 +8,17 @@ holder-bound when required, and unused.
 
 ## Evidence
 
-- The safe, dependency-free Rust kernel is small enough for direct review.
-- Lean proves soundness and the principal acceptance invariants.
+- The safe, dependency-free Rust kernel is small enough for direct review;
+  the hybrid post-quantum adapter crates isolate their pinned RustCrypto
+  dependencies (`ml-dsa`, `p256`) outside the kernel boundary.
+- Lean proves soundness and the principal acceptance invariants, including
+  signature-suite downgrade resistance.
 - Tamarin proves the modeled authentication and replay properties.
 - Unit tests cover both selected formats, success, replay state, and negative
-  request, trust, status, disclosure, holder, integrity, audience, and claim
-  gates.
+  request, trust, status, disclosure, holder, integrity, audience, claim, and
+  signature-suite gates, plus the atomic hybrid ES256 ∧ ML-DSA-65 two-by-two
+  validity matrix, strict envelope negatives, and the wallet repository's
+  published TBS vectors and ML-DSA key anchor.
 - CI runs formatting, tests, strict Clippy, and Lean; the release gate also runs
   the pinned Tamarin/Maude toolchain.
 

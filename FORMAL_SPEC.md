@@ -23,7 +23,8 @@ wallet bytes -> protocol/format/PKI/status adapters -> structured evidence
 2. Response request ID, client ID, nonce, and transcript equal the request.
 3. The response is unused, integrity protected, audience bound, and contains
    exactly the credential count supported by this baseline.
-4. Format, credential type, and trust anchor equal the selected policy.
+4. Format, credential type, trust anchor, and signature suite equal the
+   selected policy.
 5. Signature and status evidence are accepted, in interval, and fresh.
 6. The credential is not revoked and claims are structurally valid.
 7. The disclosed set exactly equals the policy-approved set.
@@ -40,6 +41,8 @@ only after `authorize_accept` succeeds.
 - `accepted_credential_is_trusted_and_current`: trust, signature, fresh status,
   and non-revocation hold.
 - `accepted_disclosures_match_policy`: no unapproved disclosure set is released.
+- `required_signature_suite_is_enforced`: a policy that requires the hybrid
+  post-quantum suite never releases attributes on classical-only evidence.
 - `required_holder_binding_is_enforced`: required possession binds to the
   credential holder key.
 
@@ -55,4 +58,14 @@ IssuerAuth/MSO/device namespaces, value digests, validity, certificate path,
 DeviceAuthentication, and the OID4VP/DC API session transcript. Both adapters
 must reject duplicates, ambiguity, unsupported critical data, and trailing
 input, and must preserve the exact disclosed claim set.
+
+For the isolated `euwallet-hybrid-pq-v1` profile, the `hybrid-pq-verifier`
+adapter must verify strict magic-prefixed deterministic-CBOR envelopes,
+re-encode them byte-for-byte as a second canonicality check, bind profile,
+purpose, key identity, generation, audience, nonce, replay set, and validity
+window, rebuild the domain-separated to-be-signed bytes internally, and accept
+only when both the ES256 and ML-DSA-65 components verify over those identical
+bytes. It may then construct `SignatureSuite::HybridPqV1` evidence; every
+failure is a single generic rejection. See
+[docs/experimental-hybrid-pq-verification.md](docs/experimental-hybrid-pq-verification.md).
 

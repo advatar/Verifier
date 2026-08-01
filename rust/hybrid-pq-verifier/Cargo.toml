@@ -1,0 +1,21 @@
+[package]
+name = "hybrid-pq-verifier"
+version = "0.1.0"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+publish = false
+
+[lib]
+path = "src/lib.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+hybrid-pq = { path = "../hybrid-pq" }
+ml-dsa = { version = "0.1.1", default-features = false, features = ["getrandom", "zeroize"] }
+p256 = { version = "0.13.2", default-features = false, features = ["ecdsa", "std"] }
+
+[dev-dependencies]
+sha2 = "0.10"

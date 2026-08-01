@@ -26,6 +26,14 @@ inductive CredentialFormat where
   | mdoc
   deriving DecidableEq, Repr
 
+/-- Signature suite proved by the cryptographic adapter. `hybridPqV1` records
+atomic verification of both the ES256 and ML-DSA-65 components of the isolated
+`euwallet-hybrid-pq-v1` profile over identical domain-separated bytes. -/
+inductive SignatureSuite where
+  | classical
+  | hybridPqV1
+  deriving DecidableEq, Repr
+
 structure TimedEvidence where
   validFrom : Instant
   validUntil : Instant
@@ -45,6 +53,7 @@ structure VerificationPolicy where
   format : CredentialFormat
   requiredDisclosures : DisclosureSetId
   allowedTrustAnchor : TrustAnchorId
+  requiredSignatureSuite : SignatureSuite
   requireHolderBinding : Bool
   requireSameSubject : Bool
   maxClockSkew : Nat
@@ -69,6 +78,7 @@ structure CredentialEvidence where
   subject : SubjectId
   holderKey : HolderKeyId
   disclosures : DisclosureSetId
+  signatureSuite : SignatureSuite
   signature : TimedEvidence
   status : TimedEvidence
   notRevoked : Bool
@@ -124,6 +134,7 @@ def mayAccept (s : VerificationSession) (p : PresentationEvidence)
   c.format = s.request.policy.format ∧
   c.credentialType = s.request.policy.credentialType ∧
   c.trustAnchor = s.request.policy.allowedTrustAnchor ∧
+  c.signatureSuite = s.request.policy.requiredSignatureSuite ∧
   c.signature.usableAt now s.request.policy.maxClockSkew ∧
   c.status.usableAt now s.request.policy.maxStatusAge ∧
   c.notRevoked = true ∧
@@ -208,7 +219,7 @@ theorem accepted_credential_is_trusted_and_current
     c.notRevoked = true := by
   have hMay := authorizeAccept_sound s p c now cmd h
   rcases hMay with
-    ⟨_, _, _, _, _, _, _, _, _, _, _, _, hTrust, hSig, hStatus, hNotRevoked, _⟩
+    ⟨_, _, _, _, _, _, _, _, _, _, _, _, hTrust, _, hSig, hStatus, hNotRevoked, _⟩
   exact ⟨hTrust, hSig, hStatus, hNotRevoked⟩
 
 /-- Only the policy-approved selective disclosure set may be released. -/
@@ -219,8 +230,21 @@ theorem accepted_disclosures_match_policy
     c.disclosures = s.request.policy.requiredDisclosures := by
   have hMay := authorizeAccept_sound s p c now cmd h
   rcases hMay with
-    ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hDisclosures, _⟩
+    ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hDisclosures, _⟩
   exact hDisclosures
+
+/-- Acceptance proves the policy-selected signature suite: a policy that
+requires the hybrid post-quantum suite can never release attributes on
+classical-only signature evidence. -/
+theorem required_signature_suite_is_enforced
+    (s : VerificationSession) (p : PresentationEvidence)
+    (c : CredentialEvidence) (now : Instant) (cmd : AcceptCommand)
+    (h : authorizeAccept s p c now = .ok cmd) :
+    c.signatureSuite = s.request.policy.requiredSignatureSuite := by
+  have hMay := authorizeAccept_sound s p c now cmd h
+  rcases hMay with
+    ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, hSuite, _⟩
+  exact hSuite
 
 /-- When policy requires it, acceptance proves possession of the credential key. -/
 theorem required_holder_binding_is_enforced
@@ -231,7 +255,7 @@ theorem required_holder_binding_is_enforced
     p.holderBindingVerified = true ∧ p.holderKey = c.holderKey := by
   have hMay := authorizeAccept_sound s p c now cmd h
   rcases hMay with
-    ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBinding, _⟩
+    ⟨_, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, _, hBinding, _⟩
   simp [holderBindingOk, hRequired] at hBinding
   exact hBinding
 

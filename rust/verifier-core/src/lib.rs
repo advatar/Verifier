@@ -44,6 +44,27 @@ const fn same_format(left: CredentialFormat, right: CredentialFormat) -> bool {
     )
 }
 
+/// Signature suite proved by the cryptographic adapter for one credential.
+///
+/// `HybridPqV1` records that an adapter verified the isolated
+/// `euwallet-hybrid-pq-v1` profile: both the ES256 and ML-DSA-65 components
+/// over identical domain-separated bytes, atomically. A policy that requires
+/// the hybrid suite can never be satisfied by classical-only evidence, so a
+/// downgrade is rejected before signature freshness is even considered.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SignatureSuite {
+    Classical,
+    HybridPqV1,
+}
+
+const fn same_suite(left: SignatureSuite, right: SignatureSuite) -> bool {
+    matches!(
+        (left, right),
+        (SignatureSuite::Classical, SignatureSuite::Classical)
+            | (SignatureSuite::HybridPqV1, SignatureSuite::HybridPqV1)
+    )
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TimedEvidence {
     pub valid_from: Instant,
@@ -71,6 +92,7 @@ pub struct VerificationPolicy {
     pub format: CredentialFormat,
     pub required_disclosures: DisclosureSetId,
     pub allowed_trust_anchor: TrustAnchorId,
+    pub required_signature_suite: SignatureSuite,
     pub require_holder_binding: bool,
     pub require_same_subject: bool,
     pub max_clock_skew: u64,
@@ -97,6 +119,7 @@ pub struct CredentialEvidence {
     pub subject: SubjectId,
     pub holder_key: HolderKeyId,
     pub disclosures: DisclosureSetId,
+    pub signature_suite: SignatureSuite,
     pub signature: TimedEvidence,
     pub status: TimedEvidence,
     pub not_revoked: bool,
@@ -151,6 +174,7 @@ pub enum VerificationError {
     FormatNotAllowed,
     CredentialTypeNotAllowed,
     IssuerNotTrusted,
+    SignatureSuiteNotAllowed,
     SignatureInvalid,
     StatusInvalid,
     CredentialRevoked,
@@ -211,6 +235,9 @@ pub const fn authorize_accept(
     }
     if credential.trust_anchor.0 != policy.allowed_trust_anchor.0 {
         return Err(VerificationError::IssuerNotTrusted);
+    }
+    if !same_suite(credential.signature_suite, policy.required_signature_suite) {
+        return Err(VerificationError::SignatureSuiteNotAllowed);
     }
     if !credential.signature.usable_at(now, policy.max_clock_skew) {
         return Err(VerificationError::SignatureInvalid);
@@ -293,6 +320,7 @@ mod tests {
             format: CredentialFormat::SdJwtVc,
             required_disclosures: DisclosureSetId(2),
             allowed_trust_anchor: TrustAnchorId(3),
+            required_signature_suite: SignatureSuite::HybridPqV1,
             require_holder_binding: true,
             require_same_subject: true,
             max_clock_skew: 30,
@@ -333,6 +361,7 @@ mod tests {
             subject: SubjectId(12),
             holder_key: HolderKeyId(10),
             disclosures: DisclosureSetId(2),
+            signature_suite: SignatureSuite::HybridPqV1,
             signature: evidence(),
             status: evidence(),
             not_revoked: true,
@@ -408,6 +437,28 @@ mod tests {
         assert_eq!(
             authorize_accept(session, presentation, credential, NOW),
             Err(VerificationError::HolderBindingInvalid)
+        );
+    }
+
+    #[test]
+    fn required_hybrid_pq_suite_rejects_classical_downgrade() {
+        let (session, presentation, mut credential) = fixture();
+        credential.signature_suite = SignatureSuite::Classical;
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::SignatureSuiteNotAllowed)
+        );
+
+        let (mut session, presentation, mut credential) = fixture();
+        session.request.policy.required_signature_suite = SignatureSuite::Classical;
+        credential.signature_suite = SignatureSuite::Classical;
+        assert!(authorize_accept(session, presentation, credential, NOW).is_ok());
+
+        let (mut session, presentation, credential) = fixture();
+        session.request.policy.required_signature_suite = SignatureSuite::Classical;
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::SignatureSuiteNotAllowed)
         );
     }
 
