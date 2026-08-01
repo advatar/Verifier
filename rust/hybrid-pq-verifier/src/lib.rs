@@ -19,6 +19,10 @@ use hybrid_pq::{
         EnvelopeError, decode_public_key, decode_signature, encode_public_key, encode_signature,
     },
     tbs::{HybridContext, HybridPurpose, HybridTbs},
+    wrapper::{
+        WrapperBinding, decode_credential_wrapper, encode_credential_wrapper,
+        verify_credential_wrapper,
+    },
 };
 use ml_dsa::{EncodedVerifyingKey, MlDsa65, Signature as MlDsaSignature, Verifier, VerifyingKey};
 use p256::ecdsa::signature::Verifier as EcdsaVerifierTrait;
@@ -71,6 +75,48 @@ pub struct HybridVerificationInput<'a> {
     pub seen_nonces: &'a [Vec<u8>],
     pub now_epoch_seconds: u64,
     pub downgrade_attempted: bool,
+}
+
+/// Complete trusted inputs for verifying one frozen experimental credential wrapper.
+pub struct HybridCredentialVerificationInput<'a> {
+    pub wrapper_envelope: &'a [u8],
+    pub public_key_envelope: &'a [u8],
+    pub expected_purpose: HybridPurpose,
+    pub binding: &'a WrapperBinding,
+    pub context: &'a HybridContext,
+}
+
+/// Strictly decode, canonically re-encode, bind, and atomically verify one credential wrapper.
+///
+/// This is the encoded-wrapper acceptance boundary. It returns the same generic rejection as the
+/// lower-level atomic verifier and never exposes which signature component succeeded.
+///
+/// # Errors
+///
+/// Rejects malformed or non-canonical envelopes, trusted binding/context mismatches, unsupported
+/// profiles or purposes, and failure of either signature component.
+pub fn verify_hybrid_credential_wrapper_atomic(
+    input: &HybridCredentialVerificationInput<'_>,
+) -> Result<(), HybridVerificationRejected> {
+    let fail = HybridVerificationRejected;
+    let wrapper = decode_credential_wrapper(input.wrapper_envelope)
+        .map_err(|error| fail(envelope_diagnostic(error)))?;
+    let public_key = decode_public_key(input.public_key_envelope)
+        .map_err(|error| fail(envelope_diagnostic(error)))?;
+    if encode_credential_wrapper(&wrapper) != input.wrapper_envelope
+        || encode_public_key(&public_key) != input.public_key_envelope
+    {
+        return Err(fail(HybridErrorClass::NonCanonicalInput));
+    }
+    verify_credential_wrapper(
+        &wrapper,
+        input.expected_purpose,
+        input.binding,
+        input.context,
+        &public_key,
+        &RustCryptoHybridVerifier,
+    )
+    .map_err(|error| fail(error.class()))
 }
 
 /// Parse, bind, reconstruct, verify and apply policy without exposing partial

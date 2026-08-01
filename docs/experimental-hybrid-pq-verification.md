@@ -29,11 +29,20 @@ policy never falls back to classical.
   `EUWALLET-EXPERIMENTAL-HYBRID-PQ-V1\0` magic prefix. The published TBS test
   vectors in `docs/test-vectors/` are byte-identical to the wallet repository's
   and are pinned by `stable_export_vector_pins_the_construction`.
+- `rust/hybrid-pq::wrapper` — the frozen eleven-field
+  `HybridCredentialWrapperV1` codec for test SD-JWT and mdoc payloads. Payload
+  and ordered disclosures are committed into one canonical TBS; component key
+  IDs and generation are bound to verifier-trusted state before verification.
 - `rust/hybrid-pq-verifier` — the atomic verification entry point
-  `verify_hybrid_signature_atomic` plus `verify_es256` / `verify_ml_dsa_65`,
+  `verify_hybrid_signature_atomic`, the encoded credential boundary
+  `verify_hybrid_credential_wrapper_atomic`, plus `verify_es256` /
+  `verify_ml_dsa_65`,
   backed by RustCrypto `ml-dsa` 0.1.1 (the wallet repository's qualified pin)
   and `p256` 0.13.2. The `ml_dsa_public_key_matches_the_cross_repo_anchor`
   test reproduces the wallet repository's deterministic ML-DSA-65 key anchor.
+- `docs/test-vectors` — the shared VCIssuer/EUWallet component and credential
+  wrapper corpus. Tests verify both real signatures and reject all twelve
+  component mutations and all twenty-one wrapper mutations.
 - `rust/verifier-core` — a `SignatureSuite` policy gate: credential evidence
   now records which suite its adapter proved, and
   `VerificationError::SignatureSuiteNotAllowed` rejects any suite/policy
@@ -54,9 +63,20 @@ policy never falls back to classical.
 - Any change to algorithms, sizes, encodings, framing, canonicalization,
   identifiers, or purpose semantics requires a new profile identifier.
 
+## Formal evidence
+
+`formal/lean/EudiVerifier/HybridPqModel.lean` proves AND-only verification,
+single identity/generation binding, profile/purpose binding, and downgrade
+resistance. `formal/tamarin/hybrid_pq_and_verification.spthy` models a
+quantum-capable attacker that can break the classical component and proves that
+classical compromise alone is insufficient, mixed identities cannot accept,
+hybrid-required sessions cannot downgrade, and cross-purpose replay fails.
+
 ## Excluded scope
 
-Key generation, signing, custody, export/recovery use cases, rollout gates,
-and the P-256 + ML-KEM-768 key-establishment combiner remain wallet-side and
-are not ported. This profile is experimental, default-off, non-EUDI, and not a
-production or conformity claim.
+Key generation, signing, custody, export/recovery use cases, rollout gates, and
+the P-256 + ML-KEM-768 key-establishment combiner are wallet responsibilities,
+not relying-party verification functions, and are intentionally not ported.
+Issuance transport, payload semantics, revocation, and production trust remain
+outside this experimental wrapper. This profile is experimental, default-off,
+non-EUDI, and not a production or conformity claim.

@@ -17,8 +17,12 @@ holder-bound when required, and unused.
 - Unit tests cover both selected formats, success, replay state, and negative
   request, trust, status, disclosure, holder, integrity, audience, claim, and
   signature-suite gates, plus the atomic hybrid ES256 ∧ ML-DSA-65 two-by-two
-  validity matrix, strict envelope negatives, and the wallet repository's
-  published TBS vectors and ML-DSA key anchor.
+  validity matrix, strict envelope negatives, the shared VCIssuer/EUWallet
+  component and credential-wrapper corpora (including 33 mutations), and the
+  wallet repository's published TBS vectors and ML-DSA key anchor.
+- Dedicated Lean and Tamarin hybrid-PQ models prove AND-only acceptance,
+  identity/generation and purpose binding, downgrade resistance, and that
+  classical compromise alone is insufficient.
 - CI runs formatting, tests, strict Clippy, and Lean; the release gate also runs
   the pinned Tamarin/Maude toolchain.
 

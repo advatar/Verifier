@@ -28,8 +28,13 @@
       `rust/hybrid-pq-verifier` on the qualified RustCrypto `ml-dsa` pin.
 - [x] Pin the wallet repository's published TBS test vectors and ML-DSA-65
       key anchor for cross-repository interoperability.
+- [x] Port the frozen credential wrapper, bind its component key IDs and
+      generation to trusted state, and verify the shared VCIssuer/EUWallet
+      component and wrapper corpora including all 33 mutations.
 - [x] Add the kernel `SignatureSuite` gate and prove
       `required_signature_suite_is_enforced` in Lean.
+- [x] Port the dedicated Lean and Tamarin hybrid-PQ models for AND-only
+      acceptance, downgrade resistance, and quantum-era classical compromise.
 - [x] Extend traceability, standards lock, threat model, and assurance case.
 
 ## Multi-tenant Lovable application

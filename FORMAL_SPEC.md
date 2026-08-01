@@ -49,6 +49,12 @@ only after `authorize_accept` succeeds.
 The Tamarin model separately proves request precedence, authentic holder
 presentation precedence, and nonce injectivity in its symbolic scope.
 
+The hybrid-PQ Lean model separately proves AND-only component verification,
+single identity and generation binding, exact profile and purpose binding, and
+hybrid-required downgrade resistance. Its Tamarin companion additionally
+models classical-key compromise by a quantum-capable attacker and proves that
+classical compromise alone cannot forge hybrid acceptance.
+
 ## Adapter obligations
 
 For SD-JWT VC, adapters must verify the issuer JWT, `_sd` disclosure digests,
@@ -68,4 +74,7 @@ only when both the ES256 and ML-DSA-65 components verify over those identical
 bytes. It may then construct `SignatureSuite::HybridPqV1` evidence; every
 failure is a single generic rejection. See
 [docs/experimental-hybrid-pq-verification.md](docs/experimental-hybrid-pq-verification.md).
-
+For frozen experimental credential wrappers, it must also strictly decode and
+canonically re-encode all eleven fields, commit the ordered disclosures into
+the rebuilt TBS, and bind the unsigned component key IDs and generation to
+trusted verifier state before returning hybrid-suite evidence.

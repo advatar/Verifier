@@ -34,9 +34,14 @@ deterministic-CBOR envelopes.
   the wallet repository's published test vectors in
   [docs/test-vectors](docs/test-vectors).
 - [`rust/hybrid-pq-verifier`](rust/hybrid-pq-verifier) — the atomic
-  verification adapter (`verify_hybrid_signature_atomic`) backed by RustCrypto
-  `ml-dsa` and `p256`. Acceptance is AND-only: there is no classical-only or
+  verification adapter (`verify_hybrid_signature_atomic` and
+  `verify_hybrid_credential_wrapper_atomic`) backed by RustCrypto `ml-dsa` and
+  `p256`. Acceptance is AND-only: there is no classical-only or
   post-quantum-only success state, and downgrade attempts fail closed.
+- The frozen test credential wrapper commits its payload and ordered
+  disclosures into the common TBS and binds both component key IDs plus their
+  generation to trusted verifier state. Shared VCIssuer/EUWallet vectors cover
+  real signatures and 33 fail-closed mutations.
 - The kernel's `SignatureSuite` gate (proved by
   `required_signature_suite_is_enforced`) ensures a hybrid-required policy can
   never be satisfied by classical-only evidence.
@@ -60,8 +65,8 @@ cd ../tamarin
 tamarin-prover eudi_presentation.spthy --prove
 ```
 
-The current snapshot contains 33 Rust tests, 7 Lean theorems, and 3 Tamarin
-lemmas.
+The current snapshot contains 38 Rust tests, 11 principal Lean security
+theorems, and 9 Tamarin lemmas.
 
 ## Assurance boundary
 
