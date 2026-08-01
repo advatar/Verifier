@@ -1,11 +1,11 @@
 # Resume point
 
-Last updated: 2026-07-27 (Europe/Stockholm)
+Last updated: 2026-08-01 (Europe/Stockholm)
 
 ## Current state
 
 - The formally specified Rust verifier kernel is merged into `VCVerifier/main`.
-- The Lovable frontend is merged into `advatar/verifier-page/main` at `21f2cebf14adf857c40584a5b5c971565f11a433`.
+- The Lovable frontend is merged into `advatar/verifier-page/main` at `e999b4115aec5256e0aed3d1a1e413657adec307`.
 - The parent repository records that frontend revision as the `LandingPage` submodule.
 - Lovable project: `Verifier Page` (`2a9d428c-5f33-4390-931d-85c70725e78b`).
 - Published URL: <https://verifier-is-here.lovable.app>.
