@@ -370,6 +370,17 @@ mod tests {
         (session, presentation, credential)
     }
 
+    const fn classical_fixture() -> (
+        VerificationSession,
+        PresentationEvidence,
+        CredentialEvidence,
+    ) {
+        let (mut session, presentation, mut credential) = fixture();
+        session.request.policy.required_signature_suite = SignatureSuite::Classical;
+        credential.signature_suite = SignatureSuite::Classical;
+        (session, presentation, credential)
+    }
+
     #[test]
     fn valid_sd_jwt_presentation_is_authorized() {
         let (session, presentation, credential) = fixture();
@@ -379,8 +390,22 @@ mod tests {
     }
 
     #[test]
+    fn classical_sd_jwt_presentation_remains_authorized() {
+        let (session, presentation, credential) = classical_fixture();
+        assert!(authorize_accept(session, presentation, credential, NOW).is_ok());
+    }
+
+    #[test]
     fn mdoc_is_supported_when_selected_by_policy() {
         let (mut session, presentation, mut credential) = fixture();
+        session.request.policy.format = CredentialFormat::Mdoc;
+        credential.format = CredentialFormat::Mdoc;
+        assert!(authorize_accept(session, presentation, credential, NOW).is_ok());
+    }
+
+    #[test]
+    fn classical_mdoc_presentation_remains_authorized() {
+        let (mut session, presentation, mut credential) = classical_fixture();
         session.request.policy.format = CredentialFormat::Mdoc;
         credential.format = CredentialFormat::Mdoc;
         assert!(authorize_accept(session, presentation, credential, NOW).is_ok());

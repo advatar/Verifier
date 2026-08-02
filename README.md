@@ -46,6 +46,11 @@ deterministic-CBOR envelopes.
   `required_signature_suite_is_enforced`) ensures a hybrid-required policy can
   never be satisfied by classical-only evidence.
 
+Hybrid support is additive and policy-selected. Ordinary SD-JWT VC and mdoc
+credentials continue through the classical verification suite; they do not
+need a post-quantum component unless the relying-party policy explicitly
+selects `HybridPqV1`.
+
 See
 [docs/experimental-hybrid-pq-verification.md](docs/experimental-hybrid-pq-verification.md).
 The profile is experimental, default-off, non-EUDI, and not a conformity
@@ -65,7 +70,7 @@ cd ../tamarin
 tamarin-prover eudi_presentation.spthy --prove
 ```
 
-The current snapshot contains 38 Rust tests, 11 principal Lean security
+The current snapshot contains 40 Rust tests, 11 principal Lean security
 theorems, and 9 Tamarin lemmas.
 
 ## Assurance boundary

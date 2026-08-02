@@ -14,7 +14,8 @@ holder-bound when required, and unused.
 - Lean proves soundness and the principal acceptance invariants, including
   signature-suite downgrade resistance.
 - Tamarin proves the modeled authentication and replay properties.
-- Unit tests cover both selected formats, success, replay state, and negative
+- Unit tests cover classical and hybrid success for both selected formats,
+  replay state, and negative
   request, trust, status, disclosure, holder, integrity, audience, claim, and
   signature-suite gates, plus the atomic hybrid ES256 ∧ ML-DSA-65 two-by-two
   validity matrix, strict envelope negatives, the shared VCIssuer/EUWallet
