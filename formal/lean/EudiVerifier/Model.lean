@@ -158,6 +158,7 @@ def delegationOk (policy : VerificationPolicy) (p : PresentationEvidence) (now :
       d.signature.usableAt now policy.maxClockSkew ∧
       d.status.usableAt now policy.maxStatusAge ∧
       d.notRevoked = true ∧
+      p.holderBindingVerified = true ∧
       d.delegateKey = p.holderKey ∧
       Powers.subsetOf policy.requiredPowers d.grantedPowers)
 
@@ -369,10 +370,26 @@ theorem accepted_delegation_is_scoped_bound_and_live
   simp only [delegationOk] at hDeleg
   rcases hDeleg with hNo | hEx
   · rw [hReq] at hNo; exact absurd hNo (by decide)
-  · obtain ⟨d, hSome, hAnchor, _hSig, _hStatus, hRev, hKey, hSubset⟩ := hEx
+  · obtain ⟨d, hSome, hAnchor, _hSig, _hStatus, hRev, _hBinding, hKey, hSubset⟩ := hEx
     refine ⟨d, hSome, hAnchor, hRev, hKey, hSubset, ?_, ?_⟩
     · rw [hFields.1]; simp only [onBehalfOfFor, hReq, hSome]
     · rw [hFields.2]; simp only [grantedPowersFor, hReq, hSome]
+
+/-- A delegated acceptance proves the presenting agent key was possession-proven (holder binding),
+independent of `requireHolderBinding` — so the delegate-key binding can never be hollow. -/
+theorem delegated_acceptance_requires_holder_binding
+    (s : VerificationSession) (p : PresentationEvidence)
+    (c : CredentialEvidence) (now : Instant) (cmd : AcceptCommand)
+    (hReq : s.request.policy.requireDelegation = true)
+    (h : authorizeAccept s p c now = .ok cmd) :
+    p.holderBindingVerified = true := by
+  have hMay := authorizeAccept_sound s p c now cmd h
+  have hDeleg := mayAccept_delegationOk s p c now hMay
+  simp only [delegationOk] at hDeleg
+  rcases hDeleg with hNo | hEx
+  · rw [hReq] at hNo; exact absurd hNo (by decide)
+  · obtain ⟨_d, _hSome, _hAnchor, _hSig, _hStatus, _hRev, hBinding, _hKey, _hSubset⟩ := hEx
+    exact hBinding
 
 /-- The mandate is cryptographically bound to the presenting agent key. -/
 theorem delegate_key_binding_is_enforced

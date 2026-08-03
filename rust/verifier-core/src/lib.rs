@@ -66,9 +66,11 @@ const fn same_suite(left: SignatureSuite, right: SignatureSuite) -> bool {
 }
 
 /// A bounded set of authorized operations as a bitmask, mirroring the issuer's `Powers`. One bit
-/// per operation keeps scope-containment a decidable `const fn` (`subset_of`) — the sound wire
-/// stand-in for the issuer's proven monotonic narrowing. The `delegation-verifier` adapter parses a
-/// mandate's scope URNs into this bitmask via the pinned power taxonomy shared with the issuer.
+/// per operation keeps scope-containment a decidable `const fn` (`subset_of`). `subset_of` is sound
+/// relative to this flat-bitmask abstraction; that the abstraction faithfully models wire scope
+/// semantics (and matches the issuer's proven narrowing, whose proof lives in a different repo) is
+/// an obligation on the (open) `delegation-verifier` adapter — WIRE-DELEG-001 — which parses a
+/// mandate's scope URNs into this bitmask via the pinned power taxonomy, not a fact established here.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Powers(pub u64);
 
@@ -327,9 +329,11 @@ pub const fn authorize_accept(
     }
 
     // Power-of-representation gate: when the policy requires a mandate, acceptance additionally
-    // proves the mandate is trusted, live, un-revoked, bound to the presenting agent key, and grants
-    // at least the powers this action needs. The scope check `required ⊆ granted` is the decidable
-    // wire mirror of the issuer's proven monotonic narrowing.
+    // proves the mandate is trusted, live, un-revoked, bound to the presenting (possession-proven)
+    // agent key, and grants at least the powers this action needs. The scope check
+    // `required ⊆ granted` is the decidable wire relation; that it faithfully models the issuer's
+    // proven monotonic narrowing is an assumption discharged by the (open) delegation-verifier
+    // adapter (WIRE-DELEG-001), not established here.
     if policy.require_delegation {
         match presentation.delegation {
             None => return Err(VerificationError::DelegationMissing),
@@ -346,7 +350,13 @@ pub const fn authorize_accept(
                 if !delegation.not_revoked {
                     return Err(VerificationError::DelegationRevoked);
                 }
-                if delegation.delegate_key.0 != presentation.holder_key.0 {
+                // The delegate-key binding is meaningful ONLY if the presenting key was actually
+                // possession-proven. Require holder binding for any delegated acceptance,
+                // independent of `require_holder_binding` — otherwise an adapter-asserted
+                // `holder_key` could equal a victim agent's key with no proof of possession.
+                if !presentation.holder_binding_verified
+                    || delegation.delegate_key.0 != presentation.holder_key.0
+                {
                     return Err(VerificationError::DelegateKeyBindingInvalid);
                 }
                 if !policy.required_powers.subset_of(delegation.granted_powers) {
@@ -545,6 +555,19 @@ mod tests {
         if let Some(delegation) = presentation.delegation.as_mut() {
             delegation.delegate_key = HolderKeyId(99); // not the presenting agent key (10)
         }
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::DelegateKeyBindingInvalid)
+        );
+    }
+
+    #[test]
+    fn delegated_acceptance_requires_a_possession_proven_holder_key() {
+        // Even with holder-binding turned OFF in policy, a delegated acceptance must prove the
+        // presenting agent key was possession-proven — else the delegate-key check is hollow.
+        let (mut session, mut presentation, credential) = delegation_fixture();
+        session.request.policy.require_holder_binding = false;
+        presentation.holder_binding_verified = false;
         assert_eq!(
             authorize_accept(session, presentation, credential, NOW),
             Err(VerificationError::DelegateKeyBindingInvalid)
