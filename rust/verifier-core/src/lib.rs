@@ -65,6 +65,26 @@ const fn same_suite(left: SignatureSuite, right: SignatureSuite) -> bool {
     )
 }
 
+/// A bounded set of authorized operations as a bitmask, mirroring the issuer's `Powers`. One bit
+/// per operation keeps scope-containment a decidable `const fn` (`subset_of`) — the sound wire
+/// stand-in for the issuer's proven monotonic narrowing. The `delegation-verifier` adapter parses a
+/// mandate's scope URNs into this bitmask via the pinned power taxonomy shared with the issuer.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Powers(pub u64);
+
+impl Powers {
+    /// `self ⊆ grant`: every set bit of `self` is also set in `grant`.
+    #[must_use]
+    pub const fn subset_of(self, grant: Powers) -> bool {
+        (self.0 & grant.0) == self.0
+    }
+
+    #[must_use]
+    pub const fn is_empty(self) -> bool {
+        self.0 == 0
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct TimedEvidence {
     pub valid_from: Instant,
@@ -97,6 +117,14 @@ pub struct VerificationPolicy {
     pub require_same_subject: bool,
     pub max_clock_skew: u64,
     pub max_status_age: u64,
+    /// When set, acceptance additionally requires a valid power-of-representation mandate
+    /// (`PresentationEvidence::delegation`) bound to the presenting agent key and granting at least
+    /// `required_powers`.
+    pub require_delegation: bool,
+    /// Trust anchor the mandate attestation must chain to (the delegation issuer).
+    pub allowed_delegation_anchor: TrustAnchorId,
+    /// Powers this relying party's action needs; must be a subset of the mandate's granted powers.
+    pub required_powers: Powers,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -126,6 +154,23 @@ pub struct CredentialEvidence {
     pub claims_well_formed: bool,
 }
 
+/// Evidence for a power-of-representation mandate presented alongside the agent's holder credential.
+/// Produced by the `delegation-verifier` adapter: parse the mandate VC, resolve the delegator trust
+/// anchor, extract the authenticated `cnf` into `delegate_key`, map the mandate's scope URNs into
+/// `granted_powers` via the pinned taxonomy, and check the mandate's own signature/status/status.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct DelegationEvidence {
+    pub delegator_subject: SubjectId,
+    /// The mandate's authenticated `cnf` — the agent (delegate) key it is bound to.
+    pub delegate_key: HolderKeyId,
+    /// Powers the mandate grants the delegate, parsed from the mandate's scope claim.
+    pub granted_powers: Powers,
+    pub trust_anchor: TrustAnchorId,
+    pub signature: TimedEvidence,
+    pub status: TimedEvidence,
+    pub not_revoked: bool,
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 // Each flag records a distinct adapter proof obligation; merging them would
 // erase the gate-to-requirement traceability used by the formal model.
@@ -142,6 +187,8 @@ pub struct PresentationEvidence {
     pub holder_key: HolderKeyId,
     pub credential_count: u16,
     pub credentials_share_subject: bool,
+    /// The power-of-representation mandate presented with the holder credential, if any.
+    pub delegation: Option<DelegationEvidence>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -160,6 +207,10 @@ pub struct AcceptCommand {
     pub issuer: IssuerId,
     pub subject: SubjectId,
     pub disclosures: DisclosureSetId,
+    /// For a delegated acceptance: the delegator the agent acted on behalf of, and the powers the
+    /// mandate granted. `None` / empty for an ordinary (non-delegated) acceptance.
+    pub on_behalf_of: Option<SubjectId>,
+    pub granted_powers: Powers,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -182,6 +233,13 @@ pub enum VerificationError {
     DisclosurePolicyNotSatisfied,
     HolderBindingInvalid,
     SubjectBindingInvalid,
+    DelegationMissing,
+    DelegationAnchorNotTrusted,
+    DelegationSignatureInvalid,
+    DelegationStatusInvalid,
+    DelegationRevoked,
+    DelegateKeyBindingInvalid,
+    PowerNotGranted,
 }
 
 /// Total, ordered, fail-closed implementation of the canonical `MayAccept`
@@ -191,6 +249,7 @@ pub enum VerificationError {
 /// # Errors
 ///
 /// Returns the first failed verification gate. No attributes are released.
+#[allow(clippy::too_many_lines)]
 pub const fn authorize_accept(
     session: VerificationSession,
     presentation: PresentationEvidence,
@@ -224,7 +283,10 @@ pub const fn authorize_accept(
     if !presentation.audience_verified {
         return Err(VerificationError::AudienceInvalid);
     }
-    if presentation.credential_count != 1 {
+    // A delegated presentation carries the agent's holder credential plus the mandate; an ordinary
+    // presentation carries exactly one credential.
+    let expected_credentials = if policy.require_delegation { 2 } else { 1 };
+    if presentation.credential_count != expected_credentials {
         return Err(VerificationError::CredentialCountInvalid);
     }
     if !same_format(credential.format, policy.format) {
@@ -264,6 +326,45 @@ pub const fn authorize_accept(
         return Err(VerificationError::SubjectBindingInvalid);
     }
 
+    // Power-of-representation gate: when the policy requires a mandate, acceptance additionally
+    // proves the mandate is trusted, live, un-revoked, bound to the presenting agent key, and grants
+    // at least the powers this action needs. The scope check `required ⊆ granted` is the decidable
+    // wire mirror of the issuer's proven monotonic narrowing.
+    if policy.require_delegation {
+        match presentation.delegation {
+            None => return Err(VerificationError::DelegationMissing),
+            Some(delegation) => {
+                if delegation.trust_anchor.0 != policy.allowed_delegation_anchor.0 {
+                    return Err(VerificationError::DelegationAnchorNotTrusted);
+                }
+                if !delegation.signature.usable_at(now, policy.max_clock_skew) {
+                    return Err(VerificationError::DelegationSignatureInvalid);
+                }
+                if !delegation.status.usable_at(now, policy.max_status_age) {
+                    return Err(VerificationError::DelegationStatusInvalid);
+                }
+                if !delegation.not_revoked {
+                    return Err(VerificationError::DelegationRevoked);
+                }
+                if delegation.delegate_key.0 != presentation.holder_key.0 {
+                    return Err(VerificationError::DelegateKeyBindingInvalid);
+                }
+                if !policy.required_powers.subset_of(delegation.granted_powers) {
+                    return Err(VerificationError::PowerNotGranted);
+                }
+            }
+        }
+    }
+
+    let (on_behalf_of, granted_powers) = match (policy.require_delegation, presentation.delegation)
+    {
+        (true, Some(delegation)) => (
+            Some(delegation.delegator_subject),
+            delegation.granted_powers,
+        ),
+        _ => (None, Powers(0)),
+    };
+
     Ok(AcceptCommand {
         session_id: session.id,
         response_id: presentation.response_id,
@@ -271,6 +372,8 @@ pub const fn authorize_accept(
         issuer: credential.issuer,
         subject: credential.subject,
         disclosures: credential.disclosures,
+        on_behalf_of,
+        granted_powers,
     })
 }
 
@@ -325,6 +428,9 @@ mod tests {
             require_same_subject: true,
             max_clock_skew: 30,
             max_status_age: 60,
+            require_delegation: false,
+            allowed_delegation_anchor: TrustAnchorId(13),
+            required_powers: Powers(0),
         };
         let session = VerificationSession {
             id: SessionId(4),
@@ -352,6 +458,7 @@ mod tests {
             holder_key: HolderKeyId(10),
             credential_count: 1,
             credentials_share_subject: true,
+            delegation: None,
         };
         let credential = CredentialEvidence {
             format: CredentialFormat::SdJwtVc,
@@ -379,6 +486,107 @@ mod tests {
         session.request.policy.required_signature_suite = SignatureSuite::Classical;
         credential.signature_suite = SignatureSuite::Classical;
         (session, presentation, credential)
+    }
+
+    /// A valid delegated presentation: the RP requires a mandate granting at least `present-identity`
+    /// (bit 0), and the agent presents its holder credential plus a mandate from delegator 42 that
+    /// grants `present-identity | sign-document` (0b11), bound to the presenting agent key (10).
+    fn delegation_fixture() -> (
+        VerificationSession,
+        PresentationEvidence,
+        CredentialEvidence,
+    ) {
+        let (mut session, mut presentation, credential) = fixture();
+        session.request.policy.require_delegation = true;
+        session.request.policy.required_powers = Powers(0b01);
+        presentation.credential_count = 2;
+        presentation.delegation = Some(DelegationEvidence {
+            delegator_subject: SubjectId(42),
+            delegate_key: HolderKeyId(10),
+            granted_powers: Powers(0b11),
+            trust_anchor: TrustAnchorId(13),
+            signature: evidence(),
+            status: evidence(),
+            not_revoked: true,
+        });
+        (session, presentation, credential)
+    }
+
+    #[test]
+    fn valid_delegated_presentation_is_authorized_on_behalf_of_delegator() {
+        let (session, presentation, credential) = delegation_fixture();
+        let command = authorize_accept(session, presentation, credential, NOW).unwrap();
+        assert_eq!(command.on_behalf_of, Some(SubjectId(42)));
+        assert_eq!(command.granted_powers, Powers(0b11));
+    }
+
+    #[test]
+    fn ordinary_acceptance_has_no_delegation_outcome() {
+        let (session, presentation, credential) = fixture();
+        let command = authorize_accept(session, presentation, credential, NOW).unwrap();
+        assert_eq!(command.on_behalf_of, None);
+        assert_eq!(command.granted_powers, Powers(0));
+    }
+
+    #[test]
+    fn required_power_outside_the_grant_is_rejected() {
+        let (mut session, presentation, credential) = delegation_fixture();
+        // The RP needs bit 2, which the mandate (0b11) does not grant.
+        session.request.policy.required_powers = Powers(0b100);
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::PowerNotGranted)
+        );
+    }
+
+    #[test]
+    fn mandate_bound_to_a_different_agent_key_is_rejected() {
+        let (session, mut presentation, credential) = delegation_fixture();
+        if let Some(delegation) = presentation.delegation.as_mut() {
+            delegation.delegate_key = HolderKeyId(99); // not the presenting agent key (10)
+        }
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::DelegateKeyBindingInvalid)
+        );
+    }
+
+    #[test]
+    fn revoked_untrusted_or_missing_mandate_is_rejected() {
+        let (session, mut presentation, credential) = delegation_fixture();
+        if let Some(delegation) = presentation.delegation.as_mut() {
+            delegation.not_revoked = false;
+        }
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::DelegationRevoked)
+        );
+
+        let (session, mut presentation, credential) = delegation_fixture();
+        if let Some(delegation) = presentation.delegation.as_mut() {
+            delegation.trust_anchor = TrustAnchorId(99);
+        }
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::DelegationAnchorNotTrusted)
+        );
+
+        let (session, mut presentation, credential) = delegation_fixture();
+        presentation.delegation = None;
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::DelegationMissing)
+        );
+    }
+
+    #[test]
+    fn delegated_presentation_requires_holder_credential_plus_mandate() {
+        let (session, mut presentation, credential) = delegation_fixture();
+        presentation.credential_count = 1; // missing the second (mandate) credential
+        assert_eq!(
+            authorize_accept(session, presentation, credential, NOW),
+            Err(VerificationError::CredentialCountInvalid)
+        );
     }
 
     #[test]
